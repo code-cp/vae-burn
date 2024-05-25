@@ -1,4 +1,5 @@
 use burn::backend::wgpu::WgpuDevice;
+use burn_tensor::Data;
 use burn::{
     config::Config,
     data::dataloader::batcher::Batcher,
@@ -20,7 +21,7 @@ pub fn load_model<B: Backend>(device: &B::Device) -> Model<B> {
     let model_dir = current_dir.join("artifacts/");
 
     // Load model in full precision from MessagePack file
-    let model_path = current_dir.join("artifacts/model.bin");
+    let model_path = model_dir.join("model.bin");
     let recorder = CompactRecorder::new();
 
     let model = Model::new(device);
@@ -34,8 +35,8 @@ pub fn load_model<B: Backend>(device: &B::Device) -> Model<B> {
 pub fn infer<B: Backend>(device: &B::Device) {
     let model = load_model(device);
 
-    let z_mean = Tensor::<B, 1>::from_data([0.0, 0.0], &device);
-    let z_var = Tensor::<B, 1>::from_data([0.1, 0.1], &device);
+    let z_mean = Tensor::<B, 1>::from_floats([0.0, 0.0], &device);
+    let z_var = Tensor::<B, 1>::from_floats([0.1, 0.1], &device);
     let image = model.infer(z_mean, z_var);
 
     // remove batch, channel
@@ -43,7 +44,7 @@ pub fn infer<B: Backend>(device: &B::Device) {
     let image = image * 255.;
 
     let shape = image.dims();
-    let arr = Array3::from_shape_vec((shape[0], shape[1]), image.into_data().value).unwrap();
+    let arr = Array3::from_shape_vec((1, shape[0] as usize, shape[1] as usize), image.into_data().value.to_vec()).unwrap();
 
     let image_buffer = ImageBuffer::from_fn(shape[0] as u32, shape[1] as u32, |x, y| {
         let pixel = arr[[y as usize, x as usize]];

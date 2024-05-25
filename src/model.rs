@@ -1,19 +1,18 @@
 use crate::data::MnistBatch;
 
+use burn::nn; 
 use burn::{
     config::Config,
     module::Module,
-    nn::{
-        loss::{BinaryCrossEntropyLossConfig, MseLoss, Reduction::Mean},
-    },
+    nn::loss::{MseLoss, Reduction::Mean},
     tensor::{
-        backend::{Backend},
+        backend::{Backend, AutodiffBackend},
         Tensor,
         Distribution,
         activation,
     },
+    train::{TrainOutput, RegressionOutput, TrainStep, ValidStep}, 
 };
-use burn::train::RegressionOutput;
 
 #[derive(Config)]
 pub struct EncoderConfig {
@@ -28,7 +27,7 @@ pub struct EncoderConfig {
     embedding_dim: usize,
 }
 
-#[derive(Module)]
+#[derive(Module, Debug)]
 pub struct Encoder<B: Backend> {
     conv1: nn::conv::Conv2d<B>,
     conv2: nn::conv::Conv2d<B>,
@@ -53,11 +52,11 @@ impl EncoderConfig {
             .with_stride([2, 2]).init(device);
 
         let linear_mean = nn::LinearConfig::new(
-            128 * (self.image_size / 8).powi(2),
+            128 * (self.image_size / 8).pow(2),
             self.embedding_dim
         ).init(device);
         let linear_var = nn::LinearConfig::new(
-            128 * (self.image_size / 8).powi(2),
+            128 * (self.image_size / 8).pow(2),
             self.embedding_dim
         ).init(device);
 
@@ -72,6 +71,12 @@ impl EncoderConfig {
     }
 }
 
+pub fn sampling<B: Backend>(z_mean: Tensor<B, 1>, z_var: Tensor<B, 1>) -> Tensor<B, 1> {
+    let device = B::Device::default();
+    let epsilon = Tensor::random(z_mean.clone().shape(), Distribution::Normal(0.0, 1.0), &device);
+    z_mean + z_var.mul_scalar(0.5).exp() * epsilon
+}
+
 struct LatentTensors<B: Backend> {
     z_mean: Tensor<B, 1>,
     z_var: Tensor<B, 1>,
@@ -79,11 +84,6 @@ struct LatentTensors<B: Backend> {
 }
 
 impl<B: Backend> Encoder<B> {
-    pub fn sampling(z_mean: Tensor<B, 1>, z_var: Tensor<B, 1>) -> Tensor<B, 1> {
-        let device = B::Device::default();
-        let epsilon = Tensor::random(z_mean.clone().shape(), Distribution::Normal(0.0, 1.0), &device);
-        z_mean + (0.5 * z_var).exp() * epsilon
-    }
 
     pub fn forward(&self, x: Tensor<B, 4>) -> LatentTensors<B> {
         let x = self.conv1.forward(x);
@@ -97,7 +97,7 @@ impl<B: Backend> Encoder<B> {
 
         let z_mean = self.linear_mean.forward(x.clone());
         let z_var = self.linear_var.forward(x.clone());
-        let z = Self::sampling(z_mean.clone(), z_var.clone());
+        let z = sampling(z_mean.clone(), z_var.clone());
 
         LatentTensors {
             z_mean,
@@ -116,7 +116,7 @@ struct DecoderConfig {
     deconv2_channel_out: usize,
 }
 
-#[derive(Module)]
+#[derive(Module, Debug)]
 struct Decoder<B: Backend> {
     deconv1: nn::conv::ConvTranspose2d<B>,
     deconv2: nn::conv::ConvTranspose2d<B>,
@@ -163,9 +163,11 @@ impl DecoderConfig {
 }
 
 impl<B: Backend> Decoder<B> {
-    pub fn forward<B: Backend>(&self, x: Tensor<B, 1>) -> Tensor<B, 4> {
+    pub fn forward(&self, x: Tensor<B, 1>) -> Tensor<B, 4> {
         let x = self.linear_fc.forward(x);
-        let x = x.reshape([-1, self.shape_before_flattening[0], self.shape_before_flattening[1], self.shape_before_flattening[2]]);
+
+        let batch_size = x.dims()[0] / (self.shape_before_flattening[0] * self.shape_before_flattening[1] * self.shape_before_flattening[2]);
+        let x = x.reshape([batch_size, self.shape_before_flattening[0], self.shape_before_flattening[1], self.shape_before_flattening[2]]);
 
         let x = self.deconv1.forward(x);
         let x = self.activation.forward(x);
@@ -178,14 +180,14 @@ impl<B: Backend> Decoder<B> {
     }
 }
 
-#[derive(Module)]
+#[derive(Module, Debug)]
 pub struct Model<B: Backend> {
     encoder: Encoder<B>,
     decoder: Decoder<B>,
 }
 
 impl<B: Backend> Model<B> {
-    pub fn new(device: &B::Device) -> Self<B> {
+    pub fn new(device: &B::Device) -> Model<B> {
         let image_size = 28;
         let embedding_dim = 2;
 
@@ -228,7 +230,7 @@ impl<B: Backend> Model<B> {
     }
 
     pub fn infer(&self, z_mean: Tensor<B, 1>, z_var: Tensor<B, 1>) -> Tensor<B, 4> {
-        let z = Self::sampling(z_mean.clone(), z_var.clone());
+        let z = sampling(z_mean.clone(), z_var.clone());
         self.decoder.forward(z)
     }
 
@@ -241,11 +243,12 @@ impl<B: Backend> Model<B> {
 
         // RegressionOutput can only accept Tensor<B, 2>, not Tensor<B, 4>
         let image_size = reconstruction.dims()[3];
-        let output = reconstruction.reshape([-1, image_size * image_size]);
-        let targets = targets.reshape([-1, image_size * image_size]);
+        let batch_size = reconstruction.dims()[0] * reconstruction.dims()[1];  
+        let output = reconstruction.reshape([batch_size, image_size * image_size]);
+        let targets = targets.reshape([batch_size, image_size * image_size]);
 
         let reconstruction_loss = MseLoss::new().forward(output.clone(), targets.clone(), Mean);
-        let kl_divergence_loss = -0.5 * (1. + z_var.clone() - z_mean.clone().powf_scalar(2.) - z_var.clone().exp());
+        let kl_divergence_loss = (z_var.clone().add_scalar(1.) - z_mean.clone().powf_scalar(2.) - z_var.clone().exp()).mul_scalar(-0.5);
         let loss = reconstruction_loss + kl_divergence_loss;
 
         RegressionOutput {
@@ -253,5 +256,24 @@ impl<B: Backend> Model<B> {
             output,
             targets,
         }
+    }
+}
+
+impl<B: AutodiffBackend> TrainStep<MnistBatch<B>, RegressionOutput<B>>
+    for Model<B>
+{
+    fn step(&self, item: MnistBatch<B>) -> TrainOutput<RegressionOutput<B>> {
+        let item = self.forward_loss(item);
+        let grads = item.loss.backward();
+
+        TrainOutput::new(self, grads, item)
+    }
+}
+
+impl<B: Backend> ValidStep<MnistBatch<B>, RegressionOutput<B>>
+    for Model<B>
+{
+    fn step(&self, item: MnistBatch<B>) -> RegressionOutput<B> {
+        self.forward_loss(item)
     }
 }

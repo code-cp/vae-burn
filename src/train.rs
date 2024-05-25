@@ -35,7 +35,7 @@ pub struct TrainConfig {
 
 static ARTIFACT_DIR: &str = "./artifacts";
 
-pub fn train<B: AutodiffBackend>(device: B::Device) {
+pub fn train<B: AutodiffBackend>(device: &B::Device) {
     let config_optim = AdamConfig::new().with_weight_decay(Some(WeightDecayConfig::new(5e-5)));
     let config_train = TrainConfig::new(config_optim);
     B::seed(config_train.seed);
@@ -54,11 +54,9 @@ pub fn train<B: AutodiffBackend>(device: B::Device) {
         .num_workers(config_train.num_workers)
         .build(MnistDataset::test());
 
-    let model = Model::new();
+    let model = Model::new(device);
 
     let learner = LearnerBuilder::new(ARTIFACT_DIR)
-        .metric_train_numeric(AccuracyMetric::new())
-        .metric_valid_numeric(AccuracyMetric::new())
         .metric_train(CudaMetric::new())
         .metric_valid(CudaMetric::new())
         .metric_train_numeric(LossMetric::new())
