@@ -21,7 +21,7 @@ pub struct EncoderConfig {
     conv2_channel_out: usize,
     #[config(default = 128)]
     conv3_channel_out: usize,
-    #[config(default = 28)]
+    #[config(default = 32)]
     image_size: usize,
     embedding_dim: usize,
 }
@@ -77,7 +77,7 @@ impl EncoderConfig {
     }
 }
 
-pub fn sampling<B: Backend>(z_mean: Tensor<B, 1>, z_var: Tensor<B, 1>) -> Tensor<B, 1> {
+pub fn sampling<B: Backend>(z_mean: Tensor<B, 2>, z_var: Tensor<B, 2>) -> Tensor<B, 2> {
     let device = B::Device::default();
     let epsilon = Tensor::random(
         z_mean.clone().shape(),
@@ -88,9 +88,9 @@ pub fn sampling<B: Backend>(z_mean: Tensor<B, 1>, z_var: Tensor<B, 1>) -> Tensor
 }
 
 pub struct LatentTensors<B: Backend> {
-    z_mean: Tensor<B, 1>,
-    z_var: Tensor<B, 1>,
-    z: Tensor<B, 1>,
+    z_mean: Tensor<B, 2>,
+    z_var: Tensor<B, 2>,
+    z: Tensor<B, 2>,
 }
 
 impl<B: Backend> Encoder<B> {
@@ -102,7 +102,8 @@ impl<B: Backend> Encoder<B> {
         let x = self.conv3.forward(x);
         let x = self.activation.forward(x);
 
-        let x = x.flatten(0, 3);
+        // x shape is batch x 128 x 4 x 4 
+        let x: Tensor<B, 2> = x.flatten(1, 3);
 
         let z_mean = self.linear_mean.forward(x.clone());
         let z_var = self.linear_var.forward(x.clone());
@@ -178,13 +179,10 @@ impl DecoderConfig {
 }
 
 impl<B: Backend> Decoder<B> {
-    pub fn forward(&self, x: Tensor<B, 1>) -> Tensor<B, 4> {
+    pub fn forward(&self, x: Tensor<B, 2>) -> Tensor<B, 4> {
         let x = self.linear_fc.forward(x);
 
-        let batch_size = x.dims()[0]
-            / (self.shape_before_flattening[0]
-                * self.shape_before_flattening[1]
-                * self.shape_before_flattening[2]);
+        let batch_size = x.dims()[0];
         let x = x.reshape([
             batch_size,
             self.shape_before_flattening[0],
@@ -211,7 +209,7 @@ pub struct Model<B: Backend> {
 
 impl<B: Backend> Model<B> {
     pub fn new(device: &B::Device) -> Model<B> {
-        let image_size = 28;
+        let image_size = 32;
         let embedding_dim = 2;
 
         let conv1_channel_out = 32;
@@ -249,7 +247,7 @@ impl<B: Backend> Model<B> {
         (reconstruction, latent_tensors)
     }
 
-    pub fn infer(&self, z_mean: Tensor<B, 1>, z_var: Tensor<B, 1>) -> Tensor<B, 4> {
+    pub fn infer(&self, z_mean: Tensor<B, 2>, z_var: Tensor<B, 2>) -> Tensor<B, 4> {
         let z = sampling(z_mean.clone(), z_var.clone());
         self.decoder.forward(z)
     }
@@ -265,13 +263,15 @@ impl<B: Backend> Model<B> {
         let image_size = reconstruction.dims()[2];
         let batch_size = reconstruction.dims()[0] * reconstruction.dims()[1];
         let output = reconstruction.reshape([batch_size, image_size * image_size]);
+
+        // target size batch x 1 x 32 x 32 
         let targets = targets.reshape([batch_size, image_size * image_size]);
 
         let reconstruction_loss = MseLoss::new().forward(output.clone(), targets.clone(), Mean);
         let kl_divergence_loss =
             (z_var.clone().add_scalar(1.) - z_mean.clone().powf_scalar(2.) - z_var.clone().exp())
                 .mul_scalar(-0.5);
-        let loss = reconstruction_loss + kl_divergence_loss;
+        let loss = reconstruction_loss + kl_divergence_loss.mean();
 
         RegressionOutput {
             loss,

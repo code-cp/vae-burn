@@ -35,8 +35,8 @@ pub fn load_model<B: Backend>(device: &B::Device) -> Model<B> {
 pub fn infer<B: Backend>(device: &B::Device) {
     let model = load_model(device);
 
-    let z_mean = Tensor::<B, 1>::from_floats([0.0, 0.0], &device);
-    let z_var = Tensor::<B, 1>::from_floats([0.1, 0.1], &device);
+    let z_mean = Tensor::<B, 1>::from_floats([0.0, 0.0], &device).unsqueeze_dim(0);
+    let z_var = Tensor::<B, 1>::from_floats([0.1, 0.1], &device).unsqueeze_dim(0);
     let image = model.infer(z_mean, z_var);
 
     // remove batch, channel

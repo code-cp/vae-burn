@@ -23,6 +23,7 @@ impl<B: Backend> MnistBatcher<B> {
 impl<B: Backend> Batcher<MnistItem, MnistBatch<B>> for MnistBatcher<B> {
     fn batch(&self, items: Vec<MnistItem>) -> MnistBatch<B> {
         // need extra padding for input images
+        let pad_size = (32 + 4 - 28) / 2 - 2; 
         let images = items
             .iter()
             .map(|item| Data::<f32, 2>::from(item.image))
@@ -32,9 +33,10 @@ impl<B: Backend> Batcher<MnistItem, MnistBatch<B>> for MnistBatcher<B> {
             // normalize to [0, 1]
             .map(|tensor| tensor / 255.0)
             // NOTE, can use 0.0f32.elem() to convert f32 to
-            .map(|tensor| tensor.pad((2, 2, 2, 2), 0.0f32.elem()))
+            .map(|tensor| tensor.pad((pad_size, pad_size, pad_size, pad_size), 0.0f32.elem()))
             .collect();
 
+        let pad_size = (32 - 28) / 2; 
         let targets = items
             .iter()
             .map(|item| Data::<f32, 2>::from(item.image))
@@ -43,6 +45,7 @@ impl<B: Backend> Batcher<MnistItem, MnistBatch<B>> for MnistBatcher<B> {
             })
             // normalize to [0, 1]
             .map(|tensor| tensor / 255.0)
+            .map(|tensor| tensor.pad((pad_size, pad_size, pad_size, pad_size), 0.0f32.elem()))
             .collect();
 
         let images = Tensor::cat(images, 0);

@@ -18,10 +18,12 @@ use crate::model::Model;
 
 #[derive(Config)]
 pub struct TrainConfig {
-    #[config(default = 10)]
+    // #[config(default = 10)]
+    #[config(default = 1)]
     pub num_epochs: usize,
 
-    #[config(default = 64)]
+    // #[config(default = 64)]
+    #[config(default = 1)]
     pub batch_size: usize,
 
     #[config(default = 4)]
