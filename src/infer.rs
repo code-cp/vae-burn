@@ -4,7 +4,7 @@ use burn::{
     data::dataloader::batcher::Batcher,
     module::Module,
     record::{
-        BinFileRecorder, CompactRecorder, FullPrecisionSettings, NamedMpkFileRecorder, Recorder,
+        BinFileRecorder, NoStdTrainingRecorder, CompactRecorder, FullPrecisionSettings, NamedMpkFileRecorder, Recorder,
     },
     tensor::backend::AutodiffBackend,
     tensor::{activation, backend::Backend, Bool, Device, ElementConversion, Int, Tensor},
@@ -22,7 +22,9 @@ pub fn load_model<B: Backend>(device: &B::Device) -> Model<B> {
 
     // Load model in full precision from MessagePack file
     let model_path = model_dir.join("model.bin");
-    let recorder = CompactRecorder::new();
+
+    let recorder: NamedMpkFileRecorder<burn::record::HalfPrecisionSettings> = CompactRecorder::new();
+    // let recorder = NoStdTrainingRecorder::new();
 
     let model = Model::new(device);
     let model = model
@@ -50,9 +52,9 @@ pub fn infer<B: Backend>(device: &B::Device) {
     .unwrap();
 
     let image_buffer =
-        ImageBuffer::from_fn(image.dims()[0] as u32, image.dims()[1] as u32, |x, y| {
+        ImageBuffer::from_fn(image.dims()[1] as u32, image.dims()[2] as u32, |x, y| {
             let pixel = arr[[y as usize, x as usize]];
-            image::Luma([pixel as u16])
+            image::Luma([pixel as u8])
         });
 
     image_buffer.save(format!("./images/result.png")).unwrap();

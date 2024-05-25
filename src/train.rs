@@ -85,7 +85,8 @@ pub fn train<B: AutodiffBackend>(device: &B::Device) {
     model_trained
         .save_file(
             format!("{ARTIFACT_DIR}/model"),
-            &NoStdTrainingRecorder::new(),
+            // &NoStdTrainingRecorder::new(),
+            &CompactRecorder::new(),
         )
         .expect("Failed to save trained model");
 }
