@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-burn = { version = "0.13.0", features=["wgpu", "autodiff", "dataset", "train", "tch", "vision"] }
-burn-tensor = "0.13.0"
+burn = { version = "0.13.2", features=["wgpu", "autodiff", "dataset", "train", "tch", "vision"] }
+burn-tensor = "0.13.2"
 
 ndarray = "0.15.6"
-image = "0.24.9"
+image = "0.25.1"

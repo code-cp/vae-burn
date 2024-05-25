@@ -1,17 +1,16 @@
 use crate::data::MnistBatch;
 
-use burn::nn; 
+use burn::nn;
 use burn::{
     config::Config,
     module::Module,
     nn::loss::{MseLoss, Reduction::Mean},
     tensor::{
-        backend::{Backend, AutodiffBackend},
-        Tensor,
-        Distribution,
         activation,
+        backend::{AutodiffBackend, Backend},
+        Distribution, Tensor,
     },
-    train::{TrainOutput, RegressionOutput, TrainStep, ValidStep}, 
+    train::{RegressionOutput, TrainOutput, TrainStep, ValidStep},
 };
 
 #[derive(Config)]
@@ -43,22 +42,29 @@ impl EncoderConfig {
 
         let conv1 = nn::conv::Conv2dConfig::new([1, self.conv1_channel_out], kernel_size)
             .with_padding(nn::PaddingConfig2d::Explicit(1, 1))
-            .with_stride([2, 2]).init(device);
-        let conv2 = nn::conv::Conv2dConfig::new([self.conv1_channel_out, self.conv2_channel_out], kernel_size)
-            .with_padding(nn::PaddingConfig2d::Explicit(1, 1))
-            .with_stride([2, 2]).init(device);
-        let conv3 = nn::conv::Conv2dConfig::new([self.conv2_channel_out, self.conv3_channel_out], kernel_size)
-            .with_padding(nn::PaddingConfig2d::Explicit(1, 1))
-            .with_stride([2, 2]).init(device);
+            .with_stride([2, 2])
+            .init(device);
+        let conv2 = nn::conv::Conv2dConfig::new(
+            [self.conv1_channel_out, self.conv2_channel_out],
+            kernel_size,
+        )
+        .with_padding(nn::PaddingConfig2d::Explicit(1, 1))
+        .with_stride([2, 2])
+        .init(device);
+        let conv3 = nn::conv::Conv2dConfig::new(
+            [self.conv2_channel_out, self.conv3_channel_out],
+            kernel_size,
+        )
+        .with_padding(nn::PaddingConfig2d::Explicit(1, 1))
+        .with_stride([2, 2])
+        .init(device);
 
-        let linear_mean = nn::LinearConfig::new(
-            128 * (self.image_size / 8).pow(2),
-            self.embedding_dim
-        ).init(device);
-        let linear_var = nn::LinearConfig::new(
-            128 * (self.image_size / 8).pow(2),
-            self.embedding_dim
-        ).init(device);
+        let linear_mean =
+            nn::LinearConfig::new(128 * (self.image_size / 8).pow(2), self.embedding_dim)
+                .init(device);
+        let linear_var =
+            nn::LinearConfig::new(128 * (self.image_size / 8).pow(2), self.embedding_dim)
+                .init(device);
 
         Encoder {
             conv1,
@@ -73,7 +79,11 @@ impl EncoderConfig {
 
 pub fn sampling<B: Backend>(z_mean: Tensor<B, 1>, z_var: Tensor<B, 1>) -> Tensor<B, 1> {
     let device = B::Device::default();
-    let epsilon = Tensor::random(z_mean.clone().shape(), Distribution::Normal(0.0, 1.0), &device);
+    let epsilon = Tensor::random(
+        z_mean.clone().shape(),
+        Distribution::Normal(0.0, 1.0),
+        &device,
+    );
     z_mean + z_var.mul_scalar(0.5).exp() * epsilon
 }
 
@@ -84,7 +94,6 @@ struct LatentTensors<B: Backend> {
 }
 
 impl<B: Backend> Encoder<B> {
-
     pub fn forward(&self, x: Tensor<B, 4>) -> LatentTensors<B> {
         let x = self.conv1.forward(x);
         let x = self.activation.forward(x);
@@ -99,11 +108,7 @@ impl<B: Backend> Encoder<B> {
         let z_var = self.linear_var.forward(x.clone());
         let z = sampling(z_mean.clone(), z_var.clone());
 
-        LatentTensors {
-            z_mean,
-            z_var,
-            z,
-        }
+        LatentTensors { z_mean, z_var, z }
     }
 }
 
@@ -132,24 +137,34 @@ impl DecoderConfig {
 
         let linear_fc = nn::LinearConfig::new(
             self.embedding_dim,
-            self.shape_before_flattening[0] * self.shape_before_flattening[1] * self.shape_before_flattening[1],
-        ).init(device);
+            self.shape_before_flattening[0]
+                * self.shape_before_flattening[1]
+                * self.shape_before_flattening[1],
+        )
+        .init(device);
 
-        let deconv1 = nn::conv::ConvTranspose2dConfig::new([self.deconv1_channel_in, self.deconv1_channel_out], kernel_size)
-            .with_stride([2, 2])
-            .with_padding([1, 1])
-            .with_padding_out([1, 1])
-            .init(device);
-        let deconv2 = nn::conv::ConvTranspose2dConfig::new([self.deconv1_channel_out, self.deconv2_channel_out], kernel_size)
-            .with_stride([2, 2])
-            .with_padding([1, 1])
-            .with_padding_out([1, 1])
-            .init(device);
-        let deconv3 = nn::conv::ConvTranspose2dConfig::new([self.deconv2_channel_out, 1], kernel_size)
-            .with_stride([2, 2])
-            .with_padding([1, 1])
-            .with_padding_out([1, 1])
-            .init(device);
+        let deconv1 = nn::conv::ConvTranspose2dConfig::new(
+            [self.deconv1_channel_in, self.deconv1_channel_out],
+            kernel_size,
+        )
+        .with_stride([2, 2])
+        .with_padding([1, 1])
+        .with_padding_out([1, 1])
+        .init(device);
+        let deconv2 = nn::conv::ConvTranspose2dConfig::new(
+            [self.deconv1_channel_out, self.deconv2_channel_out],
+            kernel_size,
+        )
+        .with_stride([2, 2])
+        .with_padding([1, 1])
+        .with_padding_out([1, 1])
+        .init(device);
+        let deconv3 =
+            nn::conv::ConvTranspose2dConfig::new([self.deconv2_channel_out, 1], kernel_size)
+                .with_stride([2, 2])
+                .with_padding([1, 1])
+                .with_padding_out([1, 1])
+                .init(device);
 
         Decoder {
             deconv1,
@@ -166,8 +181,16 @@ impl<B: Backend> Decoder<B> {
     pub fn forward(&self, x: Tensor<B, 1>) -> Tensor<B, 4> {
         let x = self.linear_fc.forward(x);
 
-        let batch_size = x.dims()[0] / (self.shape_before_flattening[0] * self.shape_before_flattening[1] * self.shape_before_flattening[2]);
-        let x = x.reshape([batch_size, self.shape_before_flattening[0], self.shape_before_flattening[1], self.shape_before_flattening[2]]);
+        let batch_size = x.dims()[0]
+            / (self.shape_before_flattening[0]
+                * self.shape_before_flattening[1]
+                * self.shape_before_flattening[2]);
+        let x = x.reshape([
+            batch_size,
+            self.shape_before_flattening[0],
+            self.shape_before_flattening[1],
+            self.shape_before_flattening[2],
+        ]);
 
         let x = self.deconv1.forward(x);
         let x = self.activation.forward(x);
@@ -217,10 +240,7 @@ impl<B: Backend> Model<B> {
         };
         let decoder = decoder_config.init(device);
 
-        Self {
-            encoder,
-            decoder,
-        }
+        Self { encoder, decoder }
     }
 
     pub fn forward(&self, x: Tensor<B, 4>) -> (Tensor<B, 4>, LatentTensors<B>) {
@@ -242,13 +262,15 @@ impl<B: Backend> Model<B> {
         let z_mean = outputs.1.z_mean.clone();
 
         // RegressionOutput can only accept Tensor<B, 2>, not Tensor<B, 4>
-        let image_size = reconstruction.dims()[3];
-        let batch_size = reconstruction.dims()[0] * reconstruction.dims()[1];  
+        let image_size = reconstruction.dims()[2];
+        let batch_size = reconstruction.dims()[0] * reconstruction.dims()[1];
         let output = reconstruction.reshape([batch_size, image_size * image_size]);
         let targets = targets.reshape([batch_size, image_size * image_size]);
 
         let reconstruction_loss = MseLoss::new().forward(output.clone(), targets.clone(), Mean);
-        let kl_divergence_loss = (z_var.clone().add_scalar(1.) - z_mean.clone().powf_scalar(2.) - z_var.clone().exp()).mul_scalar(-0.5);
+        let kl_divergence_loss =
+            (z_var.clone().add_scalar(1.) - z_mean.clone().powf_scalar(2.) - z_var.clone().exp())
+                .mul_scalar(-0.5);
         let loss = reconstruction_loss + kl_divergence_loss;
 
         RegressionOutput {
@@ -259,9 +281,7 @@ impl<B: Backend> Model<B> {
     }
 }
 
-impl<B: AutodiffBackend> TrainStep<MnistBatch<B>, RegressionOutput<B>>
-    for Model<B>
-{
+impl<B: AutodiffBackend> TrainStep<MnistBatch<B>, RegressionOutput<B>> for Model<B> {
     fn step(&self, item: MnistBatch<B>) -> TrainOutput<RegressionOutput<B>> {
         let item = self.forward_loss(item);
         let grads = item.loss.backward();
@@ -270,9 +290,7 @@ impl<B: AutodiffBackend> TrainStep<MnistBatch<B>, RegressionOutput<B>>
     }
 }
 
-impl<B: Backend> ValidStep<MnistBatch<B>, RegressionOutput<B>>
-    for Model<B>
-{
+impl<B: Backend> ValidStep<MnistBatch<B>, RegressionOutput<B>> for Model<B> {
     fn step(&self, item: MnistBatch<B>) -> RegressionOutput<B> {
         self.forward_loss(item)
     }

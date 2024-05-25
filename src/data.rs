@@ -1,7 +1,7 @@
 use burn::{
     data::{dataloader::batcher::Batcher, dataset::vision::MnistItem},
     prelude::*,
-    tensor::ops::FloatElem,
+    tensor::{ops::FloatElem, ElementConversion},
 };
 
 #[derive(Clone, Debug)]
@@ -17,7 +17,7 @@ pub struct MnistBatch<B: Backend> {
 
 impl<B: Backend> MnistBatcher<B> {
     pub fn new(device: B::Device) -> Self {
-        Self {device}
+        Self { device }
     }
 }
 
@@ -27,16 +27,21 @@ impl<B: Backend> Batcher<MnistItem, MnistBatch<B>> for MnistBatcher<B> {
         let images = items
             .iter()
             .map(|item| Data::<f32, 2>::from(item.image))
-            .map(|data| Tensor::<B, 2>::from_data(data.convert(), &self.device).unsqueeze().unsqueeze())
+            .map(|data| {
+                Tensor::<B, 2>::from_data(data.convert(), &self.device).unsqueeze_dims(&[0, 1])
+            })
             // normalize to [0, 1]
             .map(|tensor| tensor / 255.0)
-            .map(|tensor| tensor.pad((2, 2, 2, 2), FloatElem::<f32>::from(0.)))
+            // NOTE, can use 0.0f32.elem() to convert f32 to
+            .map(|tensor| tensor.pad((2, 2, 2, 2), 0.0f32.elem()))
             .collect();
 
         let targets = items
             .iter()
             .map(|item| Data::<f32, 2>::from(item.image))
-            .map(|data| Tensor::<B, 2>::from_data(data.convert(), &self.device).unsqueeze().unsqueeze())
+            .map(|data| {
+                Tensor::<B, 2>::from_data(data.convert(), &self.device).unsqueeze_dims(&[0, 1])
+            })
             // normalize to [0, 1]
             .map(|tensor| tensor / 255.0)
             .collect();
@@ -44,6 +49,6 @@ impl<B: Backend> Batcher<MnistItem, MnistBatch<B>> for MnistBatcher<B> {
         let images = Tensor::cat(images, 0);
         let targets = Tensor::cat(targets, 0);
 
-        MnistBatch {images, targets}
+        MnistBatch { images, targets }
     }
 }
