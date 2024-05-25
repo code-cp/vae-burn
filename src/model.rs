@@ -87,7 +87,7 @@ pub fn sampling<B: Backend>(z_mean: Tensor<B, 1>, z_var: Tensor<B, 1>) -> Tensor
     z_mean + z_var.mul_scalar(0.5).exp() * epsilon
 }
 
-struct LatentTensors<B: Backend> {
+pub struct LatentTensors<B: Backend> {
     z_mean: Tensor<B, 1>,
     z_var: Tensor<B, 1>,
     z: Tensor<B, 1>,
