@@ -1,6 +1,11 @@
 [package]
-name = "vae-burn"
+name = "vae_burn"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+burn = { version = "0.13.0", features=["wgpu", "autodiff", "dataset", "train", "tch", "vision"] }
+burn-tensor = "0.13.0"
+
+ndarray = "0.15.6"
+image = "0.24.9"
