@@ -246,7 +246,7 @@ impl<B: Backend> Model<B> {
 
         let reconstruction_loss = MseLoss::new().forward(output.clone(), targets.clone(), Mean);
         let kl_divergence_loss = -0.5 * (1. + z_var.clone() - z_mean.clone().powf_scalar(2.) - z_var.clone().exp());
-        let loss = 500. * reconstruction_loss + kl_divergence_loss;
+        let loss = reconstruction_loss + kl_divergence_loss;
 
         RegressionOutput {
             loss,
