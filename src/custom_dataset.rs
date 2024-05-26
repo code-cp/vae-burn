@@ -1,13 +1,11 @@
-use burn::data;
 use burn::{
     data::dataset::Dataset,
-    prelude::*,
 };
 use std::fs;
 
 #[derive(Clone, Debug)]
 pub struct ImageDatasetItem {
-    pixels: Vec<u8>, 
+    pub pixels: Vec<u8>, 
 }
 
 #[derive(Debug)]
@@ -38,7 +36,7 @@ impl Dataset<ImageDatasetItem> for CustomDataset {
 }
 
 impl CustomDataset {
-    pub fn new(dataset_path: String) -> Self {
+    pub fn new(dataset_path: &str) -> Self {
         let entries = fs::read_dir(dataset_path).expect("Dataset folder should exist"); 
         let mut dataset = Vec::new();
 
@@ -46,14 +44,23 @@ impl CustomDataset {
             let entry = entry.expect("File should be valid"); 
             let path = entry.path(); 
             if path.is_file() {
-                if let Some(filename) = path.file_name() {
-                    dataset.push(filename.to_str().unwrap().to_owned()); 
-                }
+                dataset.push(path.to_str().unwrap().to_owned());
             }
         }
 
         CustomDataset {
             dataset, 
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*; 
+
+    #[test]
+    pub fn check_length() {
+        let dataset = CustomDataset::new("/home/sean/workspace/vae-dataset/conan/processed_faces"); 
+        assert_eq!(690, dataset.len());
     }
 }

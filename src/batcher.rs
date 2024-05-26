@@ -3,28 +3,30 @@ use burn::{
     prelude::*,
 };
 
+use crate::custom_dataset::ImageDatasetItem; 
+
 #[derive(Clone, Debug)]
-pub struct MnistBatcher<B: Backend> {
+pub struct ImageDatasetBatcher<B: Backend> {
     device: B::Device,
 }
 
 #[derive(Clone, Debug)]
-pub struct MnistBatch<B: Backend> {
+pub struct ImageDatasetBatch<B: Backend> {
     pub images: Tensor<B, 4>,
     pub targets: Tensor<B, 4>,
 }
 
-impl<B: Backend> MnistBatcher<B> {
+impl<B: Backend> ImageDatasetBatcher<B> {
     pub fn new(device: B::Device) -> Self {
         Self { device }
     }
 }
 
-impl<B: Backend> Batcher<MnistItem, MnistBatch<B>> for MnistBatcher<B> {
-    fn batch(&self, items: Vec<MnistItem>) -> MnistBatch<B> {
+impl<B: Backend> Batcher<ImageDatasetItem, ImageDatasetBatch<B>> for ImageDatasetBatcher<B> {
+    fn batch(&self, items: Vec<ImageDatasetItem>) -> ImageDatasetBatch<B> {
         let images = items
             .iter()
-            .map(|item| Data::<f32, 2>::from(item.image))
+            .map(|item| Data::new(item.pixels.clone(), Shape::new([32, 32])))
             .map(|data| {
                 Tensor::<B, 2>::from_data(data.convert(), &self.device).unsqueeze_dims(&[0, 1])
             })
@@ -32,10 +34,9 @@ impl<B: Backend> Batcher<MnistItem, MnistBatch<B>> for MnistBatcher<B> {
             .map(|tensor| tensor / 255.0)
             .collect();
 
-        let pad_size = (32 - 28) / 2; 
         let targets = items
             .iter()
-            .map(|item| Data::<f32, 2>::from(item.image))
+            .map(|item| Data::new(item.pixels.clone(), Shape::new([32, 32])))
             .map(|data| {
                 Tensor::<B, 2>::from_data(data.convert(), &self.device).unsqueeze_dims(&[0, 1])
             })
@@ -46,6 +47,6 @@ impl<B: Backend> Batcher<MnistItem, MnistBatch<B>> for MnistBatcher<B> {
         let images = Tensor::cat(images, 0);
         let targets = Tensor::cat(targets, 0);
 
-        MnistBatch { images, targets }
+        ImageDatasetBatch { images, targets }
     }
 }

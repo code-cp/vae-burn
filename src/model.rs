@@ -1,10 +1,10 @@
-use crate::custom_dataset::MnistBatch;
+use crate::batcher::ImageDatasetBatch;
 
 use burn::nn;
 use burn::{
     config::Config,
     module::Module,
-    nn::loss::{MseLoss, Reduction::Mean},
+    nn::loss::{MseLoss, Reduction::Mean, Reduction::Sum},
     tensor::{
         activation,
         backend::{AutodiffBackend, Backend},
@@ -12,6 +12,8 @@ use burn::{
     },
     train::{RegressionOutput, TrainOutput, TrainStep, ValidStep},
 };
+use image::ImageBuffer;
+use ndarray::{s, Array, Array1, Array2, Array3, Axis};
 
 #[derive(Config)]
 pub struct EncoderConfig {
@@ -123,7 +125,7 @@ struct DecoderConfig {
 }
 
 #[derive(Module, Debug)]
-struct Decoder<B: Backend> {
+pub struct Decoder<B: Backend> {
     deconv1: nn::conv::ConvTranspose2d<B>,
     deconv2: nn::conv::ConvTranspose2d<B>,
     deconv3: nn::conv::ConvTranspose2d<B>,
@@ -204,13 +206,13 @@ impl<B: Backend> Decoder<B> {
 #[derive(Module, Debug)]
 pub struct Model<B: Backend> {
     encoder: Encoder<B>,
-    decoder: Decoder<B>,
+    pub decoder: Decoder<B>,
 }
 
 impl<B: Backend> Model<B> {
     pub fn new(device: &B::Device) -> Model<B> {
         let image_size = 32;
-        let embedding_dim = 2;
+        let embedding_dim = 256;
 
         let conv1_channel_out = 32;
         let conv2_channel_out = 64;
@@ -247,15 +249,14 @@ impl<B: Backend> Model<B> {
         (reconstruction, latent_tensors)
     }
 
-    pub fn infer(&self, z_mean: Tensor<B, 2>, z_var: Tensor<B, 2>) -> Tensor<B, 4> {
-        let z = sampling(z_mean.clone(), z_var.clone());
-        self.decoder.forward(z)
-    }
-
-    pub fn forward_loss(&self, item: MnistBatch<B>) -> RegressionOutput<B> {
+    pub fn forward_loss(&self, item: ImageDatasetBatch<B>) -> RegressionOutput<B> {
         let targets: Tensor<B, 4> = item.targets.clone();
         let outputs = self.forward(item.images.clone());
         let reconstruction = outputs.0.clone();
+
+        let filename = format!("./images/check.png");
+        reconstruction_to_image(reconstruction.clone().select(0, Tensor::from_ints([0], &B::Device::default())), filename); 
+
         let z_var = outputs.1.z_var.clone();
         let z_mean = outputs.1.z_mean.clone();
 
@@ -267,7 +268,7 @@ impl<B: Backend> Model<B> {
         // target size batch x 1 x 32 x 32 
         let targets = targets.reshape([batch_size, image_size * image_size]);
 
-        let reconstruction_loss = MseLoss::new().forward(output.clone(), targets.clone(), Mean);
+        let reconstruction_loss = MseLoss::new().forward(output.clone(), targets.clone(), Sum);
         let kl_divergence_loss =
             (z_var.clone().add_scalar(1.) - z_mean.clone().powf_scalar(2.) - z_var.clone().exp())
                 .mul_scalar(-0.5);
@@ -281,8 +282,28 @@ impl<B: Backend> Model<B> {
     }
 }
 
-impl<B: AutodiffBackend> TrainStep<MnistBatch<B>, RegressionOutput<B>> for Model<B> {
-    fn step(&self, item: MnistBatch<B>) -> TrainOutput<RegressionOutput<B>> {
+pub fn reconstruction_to_image<B: Backend>(image: Tensor<B, 4>, file_name: String) {
+    // remove batch
+    let image: Tensor<B, 3> = image.squeeze(0);
+    let image = image.clone() * 255.;
+
+    let arr = Array2::from_shape_vec(
+        (image.dims()[1] as usize, image.dims()[2] as usize),
+        image.clone().into_data().convert::<f32>().value,
+    )
+    .unwrap();
+
+    let image_buffer =
+        ImageBuffer::from_fn(image.dims()[1] as u32, image.dims()[2] as u32, |x, y| {
+            let pixel = arr[[y as usize, x as usize]];
+            image::Luma([pixel as u8])
+        });
+
+    image_buffer.save(file_name).unwrap();
+}
+
+impl<B: AutodiffBackend> TrainStep<ImageDatasetBatch<B>, RegressionOutput<B>> for Model<B> {
+    fn step(&self, item: ImageDatasetBatch<B>) -> TrainOutput<RegressionOutput<B>> {
         let item = self.forward_loss(item);
         let grads = item.loss.backward();
 
@@ -290,8 +311,8 @@ impl<B: AutodiffBackend> TrainStep<MnistBatch<B>, RegressionOutput<B>> for Model
     }
 }
 
-impl<B: Backend> ValidStep<MnistBatch<B>, RegressionOutput<B>> for Model<B> {
-    fn step(&self, item: MnistBatch<B>) -> RegressionOutput<B> {
+impl<B: Backend> ValidStep<ImageDatasetBatch<B>, RegressionOutput<B>> for Model<B> {
+    fn step(&self, item: ImageDatasetBatch<B>) -> RegressionOutput<B> {
         self.forward_loss(item)
     }
 }

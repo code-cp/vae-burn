@@ -13,17 +13,15 @@ use burn::{
     },
 };
 
-use crate::custom_dataset::MnistBatcher;
+use crate::{batcher::ImageDatasetBatcher, custom_dataset::CustomDataset};
 use crate::model::Model;
 
 #[derive(Config)]
 pub struct TrainConfig {
-    // #[config(default = 10)]
-    #[config(default = 1)]
+    #[config(default = 10)]
     pub num_epochs: usize,
 
-    // #[config(default = 64)]
-    #[config(default = 1)]
+    #[config(default = 64)]
     pub batch_size: usize,
 
     #[config(default = 4)]
@@ -39,22 +37,30 @@ static ARTIFACT_DIR: &str = "./artifacts";
 
 pub fn train<B: AutodiffBackend>(device: &B::Device) {
     let config_optim = AdamConfig::new().with_weight_decay(Some(WeightDecayConfig::new(5e-5)));
-    let config_train = TrainConfig::new(config_optim);
+
+    let num_epochs = 10; 
+    let batch_size = 64; 
+    let config_train = TrainConfig::new(config_optim)
+        .with_batch_size(batch_size)
+        .with_num_epochs(num_epochs);
     B::seed(config_train.seed);
 
-    let batcher_train = MnistBatcher::<B>::new(device.clone());
-    let batcher_valid = MnistBatcher::<B::InnerBackend>::new(device.clone());
+    let batcher_train = ImageDatasetBatcher::<B>::new(device.clone());
+    let batcher_valid = ImageDatasetBatcher::<B::InnerBackend>::new(device.clone());
+
+    let train_set_path = "/home/sean/workspace/vae-dataset/conan/processed_faces_train";
+    let test_set_path = "/home/sean/workspace/vae-dataset/conan/processed_faces_test"; 
 
     let dataloader_train = DataLoaderBuilder::new(batcher_train)
         .batch_size(config_train.batch_size)
         .shuffle(config_train.seed)
         .num_workers(config_train.num_workers)
-        .build(MnistDataset::train());
+        .build(CustomDataset::new(train_set_path));
     let dataloader_test = DataLoaderBuilder::new(batcher_valid)
         .batch_size(config_train.batch_size)
         .shuffle(config_train.seed)
         .num_workers(config_train.num_workers)
-        .build(MnistDataset::test());
+        .build(CustomDataset::new(test_set_path));
 
     let model = Model::new(device);
 
@@ -69,7 +75,7 @@ pub fn train<B: AutodiffBackend>(device: &B::Device) {
             Aggregate::Mean,
             Direction::Lowest,
             Split::Valid,
-            StoppingCondition::NoImprovementSince { n_epochs: 1 },
+            StoppingCondition::NoImprovementSince { n_epochs: 20 },
         ))
         .devices(vec![device.clone()])
         .num_epochs(config_train.num_epochs)
