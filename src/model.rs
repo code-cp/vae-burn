@@ -254,8 +254,10 @@ impl<B: Backend> Model<B> {
         let outputs = self.forward(item.images.clone());
         let reconstruction = outputs.0.clone();
 
-        let filename = format!("./images/check.png");
+        let filename = format!("./images/reconstruction.png");
         reconstruction_to_image(reconstruction.clone().select(0, Tensor::from_ints([0], &B::Device::default())), filename); 
+        let filename = format!("./images/target.png");
+        reconstruction_to_image(targets.clone().select(0, Tensor::from_ints([0], &B::Device::default())), filename); 
 
         let z_var = outputs.1.z_var.clone();
         let z_mean = outputs.1.z_mean.clone();
