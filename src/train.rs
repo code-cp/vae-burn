@@ -13,7 +13,7 @@ use burn::{
     },
 };
 
-use crate::data::MnistBatcher;
+use crate::custom_dataset::MnistBatcher;
 use crate::model::Model;
 
 #[derive(Config)]

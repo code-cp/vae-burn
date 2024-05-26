@@ -1,4 +1,4 @@
-use crate::data::MnistBatch;
+use crate::custom_dataset::MnistBatch;
 
 use burn::nn;
 use burn::{
