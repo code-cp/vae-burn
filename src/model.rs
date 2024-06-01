@@ -106,7 +106,7 @@ impl<B: Backend> Encoder<B> {
         let x = self.conv3.forward(x);
         let x = self.activation.forward(x);
 
-        // x shape is batch x 128 x 4 x 4 
+        // x shape is batch x 128 x 4 x 4
         let x: Tensor<B, 2> = x.flatten(1, 3);
 
         let z_mean = self.linear_mean.forward(x.clone());
@@ -260,21 +260,6 @@ impl<B: Backend> Model<B> {
         let targets: Tensor<B, 4> = item.targets.clone();
         let outputs = self.forward(item.images.clone());
         let reconstruction = outputs.0.clone();
-
-        let filename = format!("./images/reconstruction.png");
-        reconstruction_to_image(reconstruction.clone().select(0, Tensor::from_ints([0], &B::Device::default())), filename); 
-        let filename = format!("./images/target.png");
-        reconstruction_to_image(targets.clone().select(0, Tensor::from_ints([0], &B::Device::default())), filename); 
-
-        let z_var = outputs.1.z_var.clone();
-        let z_mean = outputs.1.z_mean.clone();
-
-        let average_mean = serde_json::to_string(&z_mean.clone().mean_dim(0).to_data().to_string()).expect("Failed to serialize to JSON");
-        let average_var = serde_json::to_string(&z_var.clone().mean_dim(0).to_data().to_string()).expect("Failed to serialize to JSON");
-        let mut file = File::create("./artifacts/average_mean.json").expect("Failed to create file");
-        file.write_all(average_mean.as_bytes()).expect("Failed to write to file");
-        let mut file = File::create("./artifacts/average_var.json").expect("Failed to create file");
-        file.write_all(average_var.as_bytes()).expect("Failed to write to file");
 
         // RegressionOutput can only accept Tensor<B, 2>, not Tensor<B, 4>
         let image_size = reconstruction.dims()[2];
