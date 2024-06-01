@@ -3951,6 +3951,8 @@ dependencies = [
  "burn-tensor",
  "image 0.25.1",
  "ndarray",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

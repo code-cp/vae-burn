@@ -38,7 +38,7 @@ static ARTIFACT_DIR: &str = "./artifacts";
 pub fn train<B: AutodiffBackend>(device: &B::Device) {
     let config_optim = AdamConfig::new().with_weight_decay(Some(WeightDecayConfig::new(5e-5)));
 
-    let num_epochs = 10; 
+    let num_epochs = 10000; 
     let batch_size = 64; 
     let config_train = TrainConfig::new(config_optim)
         .with_batch_size(batch_size)
@@ -48,8 +48,8 @@ pub fn train<B: AutodiffBackend>(device: &B::Device) {
     let batcher_train = ImageDatasetBatcher::<B>::new(device.clone());
     let batcher_valid = ImageDatasetBatcher::<B::InnerBackend>::new(device.clone());
 
-    let train_set_path = "/home/sean/workspace/vae-dataset/conan/processed_faces_train";
-    let test_set_path = "/home/sean/workspace/vae-dataset/conan/processed_faces_test"; 
+    let train_set_path = "/home/sean/workspace/vae-dataset/conan/faces_train";
+    let test_set_path = "/home/sean/workspace/vae-dataset/conan/faces_test"; 
 
     let dataloader_train = DataLoaderBuilder::new(batcher_train)
         .batch_size(config_train.batch_size)

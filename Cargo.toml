@@ -9,3 +9,6 @@ burn-tensor = "0.13.2"
 
 ndarray = "0.15.6"
 image = "0.25.1"
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

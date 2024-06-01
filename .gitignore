@@ -1,4 +1,6 @@
-/target
+target/
 .idea/
-artifacts/
 images/
+
+artifacts/
+artifacts-1000-epochs/

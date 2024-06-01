@@ -24,9 +24,11 @@ impl<B: Backend> ImageDatasetBatcher<B> {
 
 impl<B: Backend> Batcher<ImageDatasetItem, ImageDatasetBatch<B>> for ImageDatasetBatcher<B> {
     fn batch(&self, items: Vec<ImageDatasetItem>) -> ImageDatasetBatch<B> {
+        let image_size = 32; 
+
         let images = items
             .iter()
-            .map(|item| Data::new(item.pixels.clone(), Shape::new([32, 32])))
+            .map(|item| Data::new(item.pixels.clone(), Shape::new([image_size, image_size])))
             .map(|data| {
                 Tensor::<B, 2>::from_data(data.convert(), &self.device).unsqueeze_dims(&[0, 1])
             })
@@ -36,7 +38,7 @@ impl<B: Backend> Batcher<ImageDatasetItem, ImageDatasetBatch<B>> for ImageDatase
 
         let targets = items
             .iter()
-            .map(|item| Data::new(item.pixels.clone(), Shape::new([32, 32])))
+            .map(|item| Data::new(item.pixels.clone(), Shape::new([image_size, image_size])))
             .map(|data| {
                 Tensor::<B, 2>::from_data(data.convert(), &self.device).unsqueeze_dims(&[0, 1])
             })

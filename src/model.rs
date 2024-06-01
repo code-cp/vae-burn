@@ -14,6 +14,8 @@ use burn::{
 };
 use image::ImageBuffer;
 use ndarray::{s, Array, Array1, Array2, Array3, Axis};
+use std::fs::File;
+use std::io::Write;
 
 #[derive(Config)]
 pub struct EncoderConfig {
@@ -243,6 +245,11 @@ impl<B: Backend> Model<B> {
         Self { encoder, decoder }
     }
 
+    pub fn infer(&self, z_mean: Tensor<B, 2>, z_var: Tensor<B, 2>) -> Tensor<B, 4> {
+        let z = sampling(z_mean.clone(), z_var.clone());
+        self.decoder.forward(z)
+    }
+
     pub fn forward(&self, x: Tensor<B, 4>) -> (Tensor<B, 4>, LatentTensors<B>) {
         let latent_tensors = self.encoder.forward(x);
         let reconstruction = self.decoder.forward(latent_tensors.z.clone());
@@ -262,12 +269,18 @@ impl<B: Backend> Model<B> {
         let z_var = outputs.1.z_var.clone();
         let z_mean = outputs.1.z_mean.clone();
 
+        let average_mean = serde_json::to_string(&z_mean.clone().mean_dim(0).to_data().to_string()).expect("Failed to serialize to JSON");
+        let average_var = serde_json::to_string(&z_var.clone().mean_dim(0).to_data().to_string()).expect("Failed to serialize to JSON");
+        let mut file = File::create("./artifacts/average_mean.json").expect("Failed to create file");
+        file.write_all(average_mean.as_bytes()).expect("Failed to write to file");
+        let mut file = File::create("./artifacts/average_var.json").expect("Failed to create file");
+        file.write_all(average_var.as_bytes()).expect("Failed to write to file");
+
         // RegressionOutput can only accept Tensor<B, 2>, not Tensor<B, 4>
         let image_size = reconstruction.dims()[2];
         let batch_size = reconstruction.dims()[0] * reconstruction.dims()[1];
         let output = reconstruction.reshape([batch_size, image_size * image_size]);
 
-        // target size batch x 1 x 32 x 32 
         let targets = targets.reshape([batch_size, image_size * image_size]);
 
         let reconstruction_loss = MseLoss::new().forward(output.clone(), targets.clone(), Sum);
