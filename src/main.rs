@@ -7,6 +7,6 @@ use vae_burn::train::train;
 
 fn main() {
     let device = WgpuDevice::default();
-    // train::<Backend>(&device);
+    train::<Backend>(&device);
     infer::<Backend>(&device);
 }
