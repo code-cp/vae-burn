@@ -33,3 +33,9 @@ Sampling results
     <img src="assets/result_mean-2_var0.4.png" alt="Image 1" style="width: 30%;" />
     <img src="assets/result.png" alt="Image 5" style="width: 30%;" />
 </div>
+
+As a comparison, here are some results from a VAE implemented in pytorch 
+
+![img](assets/full_losses.png)
+
+![img](assets/pytorch_results.png)
