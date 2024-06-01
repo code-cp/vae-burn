@@ -39,3 +39,11 @@ As a comparison, here are some results from a VAE implemented in pytorch
 ![img](assets/full_losses.png)
 
 ![img](assets/pytorch_results.png)
+
+Sketch to image results from [windy AI](https://windybot.com/sketch-to-image-ai)
+
+<div style="display: flex; justify-content: space-between;">
+    <img src="assets/ran.jpg" alt="Image 1" style="width: 30%;" />
+    <img src="assets/conan.jpg" alt="Image 5" style="width: 30%;" />
+    <img src="assets/girl.jpg" alt="Image 5" style="width: 30%;" />
+</div>
