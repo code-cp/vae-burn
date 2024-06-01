@@ -18,3 +18,18 @@ I collected some images of characters in Detective Conan, then converted them to
     <img src="assets/22926647-2-0.748802.jpg" alt="Image 4" style="width: 15%;" />
 </div>
 
+## Results 
+
+Target and reconstruction 
+
+<div style="display: flex; justify-content: space-between;">
+    <img src="assets/target.png" alt="Image 1" style="width: 30%;" />
+    <img src="assets/reconstruction.png" alt="Image 5" style="width: 30%;" />
+</div>
+
+Sampling results 
+
+<div style="display: flex; justify-content: space-between;">
+    <img src="assets/result_mean-2_var0.4.png" alt="Image 1" style="width: 30%;" />
+    <img src="assets/result.png" alt="Image 5" style="width: 30%;" />
+</div>
