@@ -259,7 +259,10 @@ impl<B: Backend> Model<B> {
     pub fn forward_loss(&self, item: ImageDatasetBatch<B>) -> RegressionOutput<B> {
         let targets: Tensor<B, 4> = item.targets.clone();
         let outputs = self.forward(item.images.clone());
+
         let reconstruction = outputs.0.clone();
+        let z_var = outputs.1.z_var.clone();
+        let z_mean = outputs.1.z_mean.clone();
 
         // RegressionOutput can only accept Tensor<B, 2>, not Tensor<B, 4>
         let image_size = reconstruction.dims()[2];
