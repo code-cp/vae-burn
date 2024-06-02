@@ -42,10 +42,8 @@ static ARTIFACT_DIR: &str = "./artifacts";
 pub fn train<B: AutodiffBackend>(device: &B::Device) {
     let config_optim = AdamConfig::new().with_weight_decay(Some(WeightDecayConfig::new(5e-5)));
 
-    // let num_epochs = 10000;
-    // let batch_size = 64;
-    let num_epochs = 1;
-    let batch_size = 1;
+    let num_epochs = 10000;
+    let batch_size = 64;
 
     let config_train = TrainConfig::new(config_optim)
         .with_batch_size(batch_size)
