@@ -20,6 +20,23 @@ I collected some images of characters in Detective Conan, then converted them to
 
 Please note that the customized dataset will not be made public due to copyright issues, this repo only works with MNIST dataset. 
 
+## How to run 
+
+Make sure all the folders below exist 
+
+```
+.
+├── Cargo.lock
+├── Cargo.toml
+├── artifacts
+├── images
+├── readme.md
+├── src
+├── target
+```
+
+Then run `cargo run --release`
+
 ## Results 
 
 Target and reconstruction 
