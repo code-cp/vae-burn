@@ -18,6 +18,8 @@ I collected some images of characters in Detective Conan, then converted them to
     <img src="assets/22926647-2-0.748802.jpg" alt="Image 4" style="width: 15%;" />
 </div>
 
+Please note that the customized dataset will not be made public due to copyright issues, this repo only works with MNIST dataset. 
+
 ## Results 
 
 Target and reconstruction 

@@ -1,9 +1,7 @@
 use burn::{
-    data::dataloader::batcher::Batcher,
+    data::{dataloader::batcher::Batcher, dataset::vision::MnistItem},
     prelude::*,
 };
-
-use crate::custom_dataset::ImageDatasetItem; 
 
 #[derive(Clone, Debug)]
 pub struct ImageDatasetBatcher<B: Backend> {
@@ -22,28 +20,32 @@ impl<B: Backend> ImageDatasetBatcher<B> {
     }
 }
 
-impl<B: Backend> Batcher<ImageDatasetItem, ImageDatasetBatch<B>> for ImageDatasetBatcher<B> {
-    fn batch(&self, items: Vec<ImageDatasetItem>) -> ImageDatasetBatch<B> {
-        let image_size = 32; 
-
+impl<B: Backend> Batcher<MnistItem, ImageDatasetBatch<B>> for ImageDatasetBatcher<B> {
+    fn batch(&self, items: Vec<MnistItem>) -> ImageDatasetBatch<B> {
+        // need extra padding for input images
+        let pad_size = (32 + 4 - 28) / 2 - 2;
         let images = items
             .iter()
-            .map(|item| Data::new(item.pixels.clone(), Shape::new([image_size, image_size])))
+            .map(|item| Data::<f32, 2>::from(item.image))
             .map(|data| {
                 Tensor::<B, 2>::from_data(data.convert(), &self.device).unsqueeze_dims(&[0, 1])
             })
             // normalize to [0, 1]
             .map(|tensor| tensor / 255.0)
+            // NOTE, can use 0.0f32.elem() to convert f32 to
+            .map(|tensor| tensor.pad((pad_size, pad_size, pad_size, pad_size), 0.0f32.elem()))
             .collect();
 
+        let pad_size = (32 - 28) / 2;
         let targets = items
             .iter()
-            .map(|item| Data::new(item.pixels.clone(), Shape::new([image_size, image_size])))
+            .map(|item| Data::<f32, 2>::from(item.image))
             .map(|data| {
                 Tensor::<B, 2>::from_data(data.convert(), &self.device).unsqueeze_dims(&[0, 1])
             })
             // normalize to [0, 1]
             .map(|tensor| tensor / 255.0)
+            .map(|tensor| tensor.pad((pad_size, pad_size, pad_size, pad_size), 0.0f32.elem()))
             .collect();
 
         let images = Tensor::cat(images, 0);

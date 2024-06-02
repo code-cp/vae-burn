@@ -1,4 +1,7 @@
-use crate::batcher::ImageDatasetBatch;
+#[cfg(feature = "custom")]
+use crate::custom_batcher::ImageDatasetBatch;
+#[cfg(feature = "mnist")]
+use crate::mnist_batcher::ImageDatasetBatch;
 
 use burn::nn;
 use burn::{

@@ -2,7 +2,7 @@ use burn::{
     data::{dataloader::DataLoaderBuilder, dataset::vision::MnistDataset},
     optim::{decay::WeightDecayConfig, AdamConfig},
     prelude::*,
-    record::{CompactRecorder, NoStdTrainingRecorder},
+    record::CompactRecorder,
     tensor::backend::AutodiffBackend,
     train::{
         metric::{
@@ -13,7 +13,11 @@ use burn::{
     },
 };
 
-use crate::{batcher::ImageDatasetBatcher, custom_dataset::CustomDataset};
+#[cfg(feature = "custom")]
+use crate::custom_batcher::ImageDatasetBatcher;
+#[cfg(feature = "mnist")]
+use crate::mnist_batcher::ImageDatasetBatcher;
+
 use crate::model::Model;
 
 #[derive(Config)]
@@ -38,8 +42,8 @@ static ARTIFACT_DIR: &str = "./artifacts";
 pub fn train<B: AutodiffBackend>(device: &B::Device) {
     let config_optim = AdamConfig::new().with_weight_decay(Some(WeightDecayConfig::new(5e-5)));
 
-    let num_epochs = 10000; 
-    let batch_size = 64; 
+    let num_epochs = 10000;
+    let batch_size = 64;
     let config_train = TrainConfig::new(config_optim)
         .with_batch_size(batch_size)
         .with_num_epochs(num_epochs);
@@ -48,19 +52,45 @@ pub fn train<B: AutodiffBackend>(device: &B::Device) {
     let batcher_train = ImageDatasetBatcher::<B>::new(device.clone());
     let batcher_valid = ImageDatasetBatcher::<B::InnerBackend>::new(device.clone());
 
+    #[cfg(feature = "custom")]
     let train_set_path = "/home/sean/workspace/vae-dataset/conan/faces_train";
-    let test_set_path = "/home/sean/workspace/vae-dataset/conan/faces_test"; 
+    #[cfg(feature = "custom")]
+    let test_set_path = "/home/sean/workspace/vae-dataset/conan/faces_test";
+    #[cfg(feature = "custom")]
+    let train_custom_dataset = CustomDataset::new(train_set_path);
+    #[cfg(feature = "custom")]
+    let test_custom_dataset = CustomDataset::new(test_set_path);
 
-    let dataloader_train = DataLoaderBuilder::new(batcher_train)
+    #[cfg(feature = "mnist")]
+    let train_mnist_dataset = MnistDataset::train();
+    #[cfg(feature = "mnist")]
+    let test_mnist_dataset = MnistDataset::test();
+
+    #[cfg(feature = "custom")]
+    let custom_dataloader_train = DataLoaderBuilder::new(batcher_train)
         .batch_size(config_train.batch_size)
         .shuffle(config_train.seed)
         .num_workers(config_train.num_workers)
-        .build(CustomDataset::new(train_set_path));
-    let dataloader_test = DataLoaderBuilder::new(batcher_valid)
+        .build(train_custom_dataset);
+    #[cfg(feature = "custom")]
+    let custom_dataloader_test = DataLoaderBuilder::new(batcher_valid)
         .batch_size(config_train.batch_size)
         .shuffle(config_train.seed)
         .num_workers(config_train.num_workers)
-        .build(CustomDataset::new(test_set_path));
+        .build(test_custom_dataset);
+
+    #[cfg(feature = "mnist")]
+    let mnist_dataloader_train = DataLoaderBuilder::new(batcher_train)
+        .batch_size(config_train.batch_size)
+        .shuffle(config_train.seed)
+        .num_workers(config_train.num_workers)
+        .build(train_mnist_dataset);
+    #[cfg(feature = "mnist")]
+    let mnist_dataloader_test = DataLoaderBuilder::new(batcher_valid)
+        .batch_size(config_train.batch_size)
+        .shuffle(config_train.seed)
+        .num_workers(config_train.num_workers)
+        .build(test_mnist_dataset);
 
     let model = Model::new(device);
 
@@ -82,7 +112,10 @@ pub fn train<B: AutodiffBackend>(device: &B::Device) {
         .summary()
         .build(model, config_train.optimizer.init(), 1e-4);
 
-    let model_trained = learner.fit(dataloader_train, dataloader_test);
+    #[cfg(feature = "custom")]
+    let model_trained = learner.fit(custom_dataloader_train, custom_dataloader_test);
+    #[cfg(feature = "mnist")]
+    let model_trained = learner.fit(mnist_dataloader_train, mnist_dataloader_test);
 
     config_train
         .save(format!("{ARTIFACT_DIR}/config.json").as_str())
