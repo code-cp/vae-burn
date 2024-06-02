@@ -1,6 +1,7 @@
 target/
 .idea/
 images/
+video/ 
 
 artifacts/
 artifacts-1000-epochs/
